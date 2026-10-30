@@ -1,57 +1,90 @@
 
+"""Dairy milk collection ledger."""
+
 import hashlib
-import json
 import sqlite3
 
-conn = sqlite3.connect(":memory:")
-conn.execute(
-    "CREATE TABLE milk (id INTEGER PRIMARY KEY, farmer TEXT, "
-    "litres REAL, fat REAL, day TEXT)"
-)
+
+def create_database():
+    """Create an in-memory database for milk collection records."""
+    connection = sqlite3.connect(":memory:")
+    connection.execute(
+        "CREATE TABLE milk (id INTEGER PRIMARY KEY, farmer TEXT, "
+        "litres REAL, fat REAL, day TEXT)"
+    )
+    return connection
 
 
-def recordMilk(conn, farmer, litres, fat, day):
-    conn.execute(
+def record_milk(connection, farmer, litres, fat, day):
+    """Record a farmer's milk delivery in the database."""
+    connection.execute(
         "INSERT INTO milk (farmer, litres, fat, day) VALUES (?, ?, ?, ?)",
         (farmer, litres, fat, day)
     )
-    conn.commit()
+    connection.commit()
 
 
-def farmerToken(farmer):
+def farmer_token(farmer):
+    """Generate a SHA-256 token for a farmer."""
     return hashlib.sha256(farmer.encode()).hexdigest()
 
 
-def dailyTotal(conn, day):
-    rows = conn.execute(
+def daily_total(connection, day):
+    """Calculate the total litres of milk collected on a given day."""
+    rows = connection.execute(
         "SELECT litres FROM milk WHERE day = ?", (day,)
     ).fetchall()
-    return "Total: %.1f litres" % sum(r[0] for r in rows)
+    total = sum(row[0] for row in rows)
+    return f"Total: {total:.1f} litres"
 
 
-def topFarmer(conn):
-    rows = conn.execute(
+def top_farmer(connection):
+    """Return the farmer who supplied the most milk."""
+    rows = connection.execute(
         "SELECT farmer, SUM(litres) FROM milk GROUP BY farmer"
     ).fetchall()
-    l = max(rows, key=lambda r: r[1])
-    return l[0]
+
+    if not rows:
+        return "No farmers recorded"
+
+    top_supplier = max(rows, key=lambda row: row[1])
+    return top_supplier[0]
 
 
-def printSlip(farmer):
-    print("Printing slip for " + farmer)
+def print_slip(farmer):
+    """Print a milk collection slip message for a farmer."""
+    print(f"Printing slip for {farmer}")
 
 
-def lowFat(conn):
-    rows = conn.execute("SELECT farmer, fat FROM milk").fetchall()
-    return [f for f, fat in rows if fat == None or fat < 3.5]
+def low_fat(connection):
+    """Return farmers whose milk has fat content below 3.5."""
+    rows = connection.execute(
+        "SELECT farmer, fat FROM milk"
+    ).fetchall()
+    return [
+        farmer for farmer, fat in rows
+        if fat is None or fat < 3.5
+    ]
 
 
 def main():
-    recordMilk(conn, "Gopal", 12.5, 4.1, "Mon")
-    recordMilk(conn, "Lata", 20.0, 3.2, "Mon")
-    print(dailyTotal(conn, "Mon"), topFarmer(conn), lowFat(conn))
-    printSlip("Gopal")
-    print(farmerToken("Lata"))
+    """Run the dairy milk collection ledger demonstration."""
+    connection = create_database()
+
+    record_milk(connection, "Gopal", 12.5, 4.1, "Mon")
+    record_milk(connection, "Lata", 20.0, 3.2, "Mon")
+
+    print(
+        daily_total(connection, "Mon"),
+        top_farmer(connection),
+        low_fat(connection)
+    )
+
+    print_slip("Gopal")
+    print(farmer_token("Lata"))
+
+    connection.close()
 
 
-main()
+if __name__ == "__main__":
+    main()
