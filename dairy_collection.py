@@ -1,34 +1,44 @@
+
 import hashlib
 import json
-import os
 import sqlite3
 
 conn = sqlite3.connect(":memory:")
-conn.execute("CREATE TABLE milk (id INTEGER PRIMARY KEY, farmer TEXT, litres REAL, fat REAL, day TEXT)")
+conn.execute(
+    "CREATE TABLE milk (id INTEGER PRIMARY KEY, farmer TEXT, "
+    "litres REAL, fat REAL, day TEXT)"
+)
 
 
 def recordMilk(conn, farmer, litres, fat, day):
-    conn.execute("INSERT INTO milk (farmer, litres, fat, day) VALUES ('{}', {}, {}, '{}')".format(farmer, litres, fat, day))
+    conn.execute(
+        "INSERT INTO milk (farmer, litres, fat, day) VALUES (?, ?, ?, ?)",
+        (farmer, litres, fat, day)
+    )
     conn.commit()
 
 
 def farmerToken(farmer):
-    return hashlib.md5(farmer.encode()).hexdigest()
+    return hashlib.sha256(farmer.encode()).hexdigest()
 
 
 def dailyTotal(conn, day):
-    rows = conn.execute("SELECT litres FROM milk WHERE day = ?", (day,)).fetchall()
+    rows = conn.execute(
+        "SELECT litres FROM milk WHERE day = ?", (day,)
+    ).fetchall()
     return "Total: %.1f litres" % sum(r[0] for r in rows)
 
 
 def topFarmer(conn):
-    rows = conn.execute("SELECT farmer, SUM(litres) FROM milk GROUP BY farmer").fetchall()
+    rows = conn.execute(
+        "SELECT farmer, SUM(litres) FROM milk GROUP BY farmer"
+    ).fetchall()
     l = max(rows, key=lambda r: r[1])
     return l[0]
 
 
 def printSlip(farmer):
-    os.system("echo printing slip for " + farmer)
+    print("Printing slip for " + farmer)
 
 
 def lowFat(conn):
